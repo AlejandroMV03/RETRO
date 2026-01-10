@@ -324,3 +324,5 @@ window.addEventListener('resize', () => {
 });
 
 animate();
+
+// Cambio para actualizar Netlify
