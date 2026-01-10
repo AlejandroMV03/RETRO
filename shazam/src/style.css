@@ -1,0 +1,109 @@
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    background-color: #000000; 
+    font-family: 'Courier New', monospace; /* Fuente más "tech" */
+}
+canvas { 
+    display: block; 
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 0; 
+}
+
+/* Estilos para el mensaje inicial */
+#initial-message {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #00ff00; /* Verde matrix */
+    text-align: center;
+    z-index: 10;
+    text-shadow: 0 0 20px #00ff00;
+    pointer-events: none;
+}
+h1 { margin-bottom: 10px; letter-spacing: 5px; }
+
+/* Estilo del botón */
+#start-btn {
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 15px 50px;
+    font-size: 1.2rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    background: transparent;
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+    z-index: 100;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+    transition: all 0.3s ease;
+    letter-spacing: 2px;
+}
+#start-btn:hover { 
+    background: #00ff00; color: #000; box-shadow: 0 0 40px #00ff00; 
+}
+
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    background-color: #000000; 
+    font-family: 'Courier New', monospace;
+}
+
+#ui-container {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #00ff00;
+    z-index: 10;
+    pointer-events: none; /* Para que los clicks pasen si es necesario */
+}
+
+h1 { text-shadow: 0 0 20px #00ff00; margin-bottom: 0; }
+p { color: #88ff88; margin-top: 5px; }
+
+#start-btn {
+    pointer-events: auto; /* Reactivar clicks para el botón */
+    margin-top: 20px;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    background: black;
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+#start-btn:hover { background: #003300; box-shadow: 0 0 30px #00ff00; }
+
+/* style.css - Asegura esto para el botón */
+#fullscreen-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.8); /* Fondo más oscuro */
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    font-size: 24px;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    z-index: 9999; /* ¡IMPORTANTE! Encima de todo */
+    border-radius: 50%; /* Redondo se ve más moderno */
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#fullscreen-btn:hover {
+    background: #00ff00;
+    color: black;
+    transform: scale(1.1);
+}
