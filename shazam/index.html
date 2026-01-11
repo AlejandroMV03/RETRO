@@ -3,13 +3,133 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Matrix Rain Physics</title>
+    <title>Matrix Rain System</title>
+    
+    <style>
+        /* --- ESTILOS VISUALES (CSS INTEGRADO) --- */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #020202; 
+            font-family: 'Courier New', monospace;
+            user-select: none;
+        }
+
+        canvas { 
+            display: block; 
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1; 
+        }
+
+        /* CAPA OSCURA DE FONDO (OVERLAY) */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9); /* Muy oscuro */
+            backdrop-filter: blur(5px);
+            display: flex; /* ESTO CENTRA EL CONTENIDO */
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        /* LA CAJA DE ALERTA */
+        .system-alert {
+            background: rgba(0, 20, 0, 0.95);
+            border: 1px solid #00ff00;
+            padding: 40px 60px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.2);
+            position: relative;
+            max-width: 500px;
+        }
+
+        /* ESQUINAS DECORATIVAS */
+        .system-alert::before {
+            content: ''; position: absolute; top: -1px; left: -1px;
+            width: 20px; height: 20px;
+            border-top: 3px solid #00ff00; border-left: 3px solid #00ff00;
+        }
+        .system-alert::after {
+            content: ''; position: absolute; bottom: -1px; right: -1px;
+            width: 20px; height: 20px;
+            border-bottom: 3px solid #00ff00; border-right: 3px solid #00ff00;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 24px;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #ffffff;
+        }
+
+        p {
+            color: #00ff00;
+            font-size: 14px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* BOTÓN DE INICIO */
+        #start-btn {
+            background: transparent;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px 40px;
+            border: 2px solid #00ff00;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        #start-btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 30px #00ff00;
+        }
+
+        /* BOTÓN PANTALLA COMPLETA (REDONDO Y FLOTANTE) */
+        #fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            color: #fff;
+            font-size: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10000; /* Encima de todo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+        }
+
+        #fullscreen-btn:hover {
+            border-color: #00ff00;
+            color: #00ff00;
+            transform: scale(1.1);
+        }
+    </style>
   </head>
   <body>
-    <div id="ui-container">
-        <h1 id="title">CODE RAIN SYSTEM</h1>
-        <p id="subtitle">Comparte música para iniciar la lluvia de datos</p>
-        <button id="start-btn">▶ INICIAR SISTEMA</button>
+
+    <div id="overlay">
+        <div class="system-alert">
+            <h1>SYSTEM ACCESS</h1>
+            <p>:: Iniciar Visualización Musical ::</p>
+            <button id="start-btn">▶ ACCEDER</button>
+        </div>
     </div>
 
     <button id="fullscreen-btn" title="Pantalla Completa">⛶</button>

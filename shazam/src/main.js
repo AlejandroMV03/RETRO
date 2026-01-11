@@ -1,170 +1,293 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+
+// --- NUEVOS IMPORTES PARA EL EFECTO BLOOM (BRILLO) ---
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 // --- 1. ESCENARIO ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000); 
-scene.fog = new THREE.FogExp2(0x000000, 0.02);
+scene.background = new THREE.Color(0x020202); 
+scene.fog = new THREE.FogExp2(0x020202, 0.015);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 20, 70); 
-camera.lookAt(0, 0, 0);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+// Posición para ver todo el conjunto
+camera.position.set(0, 10, 110); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ReinhardToneMapping;
-renderer.toneMappingExposure = 2.0;
+// TONE MAPPING: Vital para que el brillo se vea intenso pero real
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const floorY = -15; // Suelo real
+// --- CONFIGURACIÓN DEL BLOOM (POST-PROCESADO) ---
+const renderScene = new RenderPass(scene, camera);
 
-// --- 2. LAPTOP RGB (OBSTÁCULO) ---
-const centerGroup = new THREE.Group();
-scene.add(centerGroup);
+// Resolución, Fuerza, Radio, Umbral
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight), 
+    1.5,  // Fuerza del brillo (1.5 es fuerte y bonito)
+    0.4,  // Radio de expansión
+    0.1   // Umbral (qué tan brillante debe ser algo para empezar a brillar)
+);
 
-// Materiales
-const frameMat = new THREE.MeshStandardMaterial({ 
-    color: 0x111111, wireframe: true, emissive: 0xff0000, emissiveIntensity: 2 
+const composer = new EffectComposer(renderer);
+composer.addPass(renderScene);
+composer.addPass(bloomPass);
+
+// Controles
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enableZoom = false; 
+controls.maxPolarAngle = Math.PI / 2; 
+
+// Suelo
+const floorGeo = new THREE.PlaneGeometry(500, 500);
+const floorMat = new THREE.MeshStandardMaterial({ 
+    color: 0x050505,
+    roughness: 0.1,
+    metalness: 0.8
 });
-const screenMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -25;
+floor.receiveShadow = true;
+scene.add(floor);
 
-function createLaptop() {
+const dragPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1000, 1000),
+    new THREE.MeshBasicMaterial({ visible: false })
+);
+dragPlane.rotation.x = -Math.PI / 2;
+dragPlane.position.y = -25;
+scene.add(dragPlane);
+
+// Iluminación
+scene.add(new THREE.AmbientLight(0xffffff, 0.1)); // Ambiente bajo para que resalte el neón
+const spotLight = new THREE.SpotLight(0xffffff, 100);
+spotLight.position.set(0, 50, 50);
+spotLight.angle = 0.6;
+spotLight.penumbra = 0.5;
+spotLight.castShadow = true;
+scene.add(spotLight);
+
+
+// --- 2. LAPTOP GAMER (OBSTÁCULO SUPERIOR) ---
+const laptopGroup = new THREE.Group();
+laptopGroup.position.set(0, 15, 0); // Altura definida
+scene.add(laptopGroup);
+
+// Materiales (Con Emissive alto para activar el Bloom)
+const laptopRGBMat = new THREE.MeshBasicMaterial({ 
+    color: 0xff0000, 
+    wireframe: true, 
+    transparent: true, opacity: 0.8
+    // El color aquí actuará como luz para el Bloom
+});
+const laptopBlackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const screenBrightMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Pantalla blanca brillante
+
+function createRGBLaptop() {
     const laptop = new THREE.Group();
     // Base
-    const base = new THREE.Mesh(new THREE.BoxGeometry(22, 1.5, 16), frameMat);
-    laptop.add(base);
+    const baseGeo = new THREE.BoxGeometry(26, 1.5, 18);
+    laptop.add(new THREE.Mesh(baseGeo, laptopBlackMat));
+    laptop.add(new THREE.Mesh(baseGeo, laptopRGBMat));
+
     // Pantalla
-    const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(22, 14, 0.5), frameMat);
-    screenFrame.position.set(0, 7, -8);
-    screenFrame.rotation.x = 0.2;
-    laptop.add(screenFrame);
-    // Luz
-    const screenLight = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), screenMat);
-    screenLight.position.set(0, 7, -7.6);
-    screenLight.rotation.x = 0.2;
-    laptop.add(screenLight);
-    
+    const screenGroup = new THREE.Group();
+    screenGroup.position.set(0, 0.5, -8);
+    screenGroup.rotation.x = 0.3;
+    const lidGeo = new THREE.BoxGeometry(26, 16, 1);
+    const lid = new THREE.Mesh(lidGeo, laptopBlackMat);
+    const lidWire = new THREE.Mesh(lidGeo, laptopRGBMat);
+    lid.position.y = 8;
+    lidWire.position.y = 8;
+    screenGroup.add(lid);
+    screenGroup.add(lidWire);
+    const display = new THREE.Mesh(new THREE.PlaneGeometry(24, 14), screenBrightMat);
+    display.position.set(0, 8, 0.6);
+    screenGroup.add(display);
+
+    laptop.add(screenGroup);
     return laptop;
 }
-const laptop = createLaptop();
-centerGroup.add(laptop);
+const laptop = createRGBLaptop();
+laptopGroup.add(laptop);
 
-const mainLight = new THREE.PointLight(0xffffff, 3, 100);
-mainLight.position.set(0, 10, 0);
-centerGroup.add(mainLight);
+// Luz puntual para reforzar el brillo del centro
+const laptopLight = new THREE.PointLight(0xff0000, 2, 50);
+laptopLight.position.set(0, 20, 10);
+scene.add(laptopLight);
 
 
-// --- 3. CARRO LIMPIADOR ---
-function createCar() {
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.2 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+// --- 3. TEXTO "ALEJANDRO MV" (OBSTÁCULO INFERIOR) ---
+const letters = []; 
+const fontLoader = new FontLoader();
 
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(14, 6, 8), bodyMat);
-    chassis.position.y = 4;
-    group.add(chassis);
+fontLoader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+    const message = "Alejandro MV";
     
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 6), bodyMat);
-    cabin.position.set(-3, 9, 0);
-    group.add(cabin);
-    
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 18), darkMat);
-    blade.position.set(8, 3, 0);
-    blade.rotation.z = -0.2;
-    group.add(blade);
-    
-    const wheelGeo = new THREE.CylinderGeometry(2.5, 2.5, 2, 16);
-    wheelGeo.rotateX(Math.PI/2);
-    const wheels = [
-        {x:-4, z:5}, {x:4, z:5}, {x:-4, z:-5}, {x:4, z:-5}
-    ];
-    wheels.forEach(pos => {
-        const w = new THREE.Mesh(wheelGeo, darkMat);
-        w.position.set(pos.x, 2.5, pos.z);
-        group.add(w);
+    const faceMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.8 });
+    // El material lateral tiene EMISSIVE para brillar con el Bloom
+    const sideMat = new THREE.MeshStandardMaterial({ 
+        color: 0x000000, 
+        emissive: 0xffffff, 
+        emissiveIntensity: 2.0 // Intensidad alta para Bloom fuerte
     });
+    const materials = [faceMat, sideMat];
 
-    return group;
-}
-const cleanerCar = createCar();
-cleanerCar.position.set(-150, floorY, 0);
-scene.add(cleanerCar);
+    let totalWidth = message.length * 9; 
+    let xOffset = -totalWidth / 2;
+
+    for (let i = 0; i < message.length; i++) {
+        const char = message[i];
+        if (char === " ") { xOffset += 12; continue; } 
+
+        const geo = new TextGeometry(char, {
+            font: font, 
+            size: 10,           
+            height: 2,          
+            curveSegments: 12,
+            bevelEnabled: true, 
+            bevelThickness: 0.5,
+            bevelSize: 0.3,
+            bevelSegments: 3
+        });
+        
+        geo.computeBoundingBox();
+        const width = geo.boundingBox.max.x - geo.boundingBox.min.x;
+        const mesh = new THREE.Mesh(geo, materials);
+        
+        // Posición: Abajo
+        mesh.position.set(xOffset, -15, -20); 
+        
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        mesh.userData = { 
+            originalZ: -20,
+            isDragging: false 
+        };
+
+        scene.add(mesh);
+        letters.push(mesh);
+        xOffset += width + 2; 
+    }
+});
 
 
-// --- 4. SISTEMA DE LLUVIA (MODIFICADO: SOLO NÚMEROS Y ÁREA GRANDE) ---
+// --- INTERACCIÓN DE ARRASTRE ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let draggedObject = null;
+
+// Referencias UI (Aseguramos que existan antes de usarlas)
+const startButton = document.getElementById('start-btn');
+const overlay = document.getElementById('overlay');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+window.addEventListener('mousedown', (e) => {
+    // Si la alerta está visible, no permitir clic en 3D
+    if(overlay && overlay.style.display !== 'none') return;
+
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(letters);
+    if (intersects.length > 0) {
+        controls.enabled = false;
+        draggedObject = intersects[0].object;
+        draggedObject.userData.isDragging = true;
+    }
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!draggedObject) return;
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(dragPlane);
+    if (intersects.length > 0) {
+        let newZ = intersects[0].point.z;
+        newZ = Math.max(-20, Math.min(30, newZ)); 
+        draggedObject.position.z = newZ;
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    if (draggedObject) {
+        draggedObject.userData.isDragging = false;
+        draggedObject = null;
+        controls.enabled = true;
+    }
+});
+
+
+// --- 4. LLUVIA DE NÚMEROS Y LLAVES ---
 function createCharTexture(char) {
     const cvs = document.createElement('canvas');
     cvs.width = 64; cvs.height = 64;
     const ctx = cvs.getContext('2d');
     ctx.font = 'bold 50px monospace';
     ctx.fillStyle = '#00ff00';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(char, 32, 32);
     return new THREE.CanvasTexture(cvs);
 }
 
-// CAMBIO 1: Solamente números del 0 al 9
-const chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-const textures = chars.map(c => createCharTexture(c));
+const specificChars = ['0','1','2','3','4','5','6','7','8','9','{','}','[',']'];
+const textures = specificChars.map(c => createCharTexture(c));
 
-const fallingParticles = [];
-const piledParticles = [];
+const particles = [];
 
 function spawnDrop(volume) {
     const tex = textures[Math.floor(Math.random() * textures.length)];
-    const mat = new THREE.SpriteMaterial({ map: tex, color: 0x00ff00, transparent: true });
+    // Material transparente, pero con color brillante para el Bloom
+    const mat = new THREE.SpriteMaterial({ map: tex, color: 0x44ff44, transparent: true, opacity: 0.9 });
     const sprite = new THREE.Sprite(mat);
     
-    // CAMBIO 2: Área masiva ("De todos lados")
-    // Aumentamos el spread de 60 a 250 para cubrir toda la pantalla
-    const spreadX = 250; 
-    const spreadZ = 150; // Profundidad
-
-    sprite.position.set(
-        (Math.random() - 0.5) * spreadX, 
-        60, // Caen desde un poco más alto
-        (Math.random() - 0.5) * spreadZ
-    );
-    
-    const size = 1.5 + Math.random() * 2;
+    sprite.position.set((Math.random()-0.5)*300, 80, (Math.random()-0.5)*150);
+    const size = 3;
     sprite.scale.set(size, size, 1);
     
-    // Velocidad vertical y un poco de deriva horizontal
     sprite.userData = { 
-        velocityY: -(0.3 + volume), 
-        velocityX: 0,
-        velocityZ: 0,
-        onLaptop: false // Flag para saber si está resbalando en la lap
+        velocity: new THREE.Vector3(0, -(0.4 + volume), 0),
+        onGround: false,
+        life: 100 
     };
     
     scene.add(sprite);
-    fallingParticles.push(sprite);
+    particles.push(sprite);
 }
 
 
-// --- 5. INTERFAZ Y AUDIO ---
+// --- 5. AUDIO & LOGICA UI ---
 let analyser, dataArray, isAudioActive = false;
-const startButton = document.getElementById('start-btn');
-const uiContainer = document.getElementById('ui-container');
-const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// Lógica Robusta de Pantalla Completa
-fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-            console.log(err); // Por si falla
-        });
-    } else {
-        document.exitFullscreen();
-    }
-});
+// Botón Pantalla Completa
+if(fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    });
+}
 
 async function startCapture() {
     try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        stream.getVideoTracks()[0].stop(); 
+        stream.getVideoTracks()[0].stop();
         if (stream.getAudioTracks().length === 0) { alert("⚠️ Sin audio."); return; }
-        
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const src = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
@@ -172,157 +295,113 @@ async function startCapture() {
         src.connect(analyser);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         isAudioActive = true;
-        uiContainer.style.display = 'none';
+        
+        // Ocultar overlay
+        if(overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 500);
+        }
     } catch (e) { console.error(e); }
 }
 if(startButton) startButton.addEventListener('click', startCapture);
 
-
-// --- 6. ANIMACIÓN FÍSICA ---
 let hue = 0;
-let silenceTimer = 0;
-let isSweeping = false;
 
 function animate() {
     requestAnimationFrame(animate);
+    controls.update();
 
-    // -- AUDIO --
     let volume = 0, bass = 0;
     if (isAudioActive) {
         analyser.getByteFrequencyData(dataArray);
-        bass = dataArray[5] / 255;
-        let sum = 0; for(let i=0; i<dataArray.length; i++) sum+=dataArray[i];
+        bass = dataArray[5] / 255; 
+        let sum = 0; for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
         volume = sum / dataArray.length / 255;
     }
 
-    // -- LAPTOP FLOTANTE --
-    hue += 0.005 + (bass * 0.02);
-    if(hue>1) hue=0;
-    const color = new THREE.Color().setHSL(hue, 1, 0.5);
-    const oppColor = new THREE.Color().setHSL((hue+0.5)%1, 1, 0.5);
+    // A. LAPTOP GIRATORIA Y COLORES (RGB Cycle)
+    const time = Date.now() * 0.001;
+    const rainbowColor = new THREE.Color().setHSL(time % 1, 1, 0.5);
     
-    frameMat.emissive.copy(color);
-    screenMat.color.copy(oppColor);
-    mainLight.color.copy(color);
-    
-    // Altura actual de la laptop (oscila)
-    const laptopY = Math.sin(Date.now()*0.002)*2 + (bass*2);
-    centerGroup.position.y = laptopY;
-    // Rotación suave
-    centerGroup.rotation.y += 0.005;
+    laptopRGBMat.color.copy(rainbowColor); 
+    laptopLight.color.copy(rainbowColor);  
+    laptopGroup.rotation.y += 0.01;
+    laptopGroup.position.y = 15 + Math.sin(time) * 1; 
 
-    // -- GENERAR GOTAS --
-    if (volume > 0.02) {
-        const count = Math.floor(volume*4)+1;
-        for(let i=0; i<count; i++) spawnDrop(volume);
-        silenceTimer = 0;
-        isSweeping = false;
-        cleanerCar.position.x = -150;
-    } else {
-        silenceTimer++;
-    }
+    // B. TEXTO REACTIVO
+    hue += 0.005; if(hue>1) hue=0;
+    const textLedColor = new THREE.Color().setHSL(hue, 1, 0.5);
 
-    // -- FÍSICA DE CAÍDA Y COLISIÓN --
-    const laptopRadius = 14; // Radio aproximado de colisión de la laptop
+    letters.forEach(mesh => {
+        if(mesh.material[1]) {
+            mesh.material[1].emissive.copy(textLedColor);
+            // El Bloom hace que esto brille mucho con el bajo
+            mesh.material[1].emissiveIntensity = 1.0 + (bass * 4.0); 
+        }
+        if (!mesh.userData.isDragging) {
+            mesh.position.z += (mesh.userData.originalZ - mesh.position.z) * 0.1;
+        }
+    });
 
-    for (let i = fallingParticles.length - 1; i >= 0; i--) {
-        const p = fallingParticles[i];
+    // C. GENERAR GOTAS
+    if (volume > 0.01) spawnDrop(volume);
+    if (Math.random() < 0.1) spawnDrop(0); 
+
+    // D. FÍSICA DE LAS GOTAS
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
         
-        // Aplicar gravedad
-        p.position.y += p.userData.velocityY;
-        p.position.x += p.userData.velocityX;
-        p.position.z += p.userData.velocityZ;
+        if (!p.userData.onGround) {
+            p.position.add(p.userData.velocity);
 
-        // 1. CHEQUEO DE COLISIÓN CON LAPTOP
-        // Solo si está cayendo desde arriba y cruza la altura de la laptop
-        if (p.position.y < laptopY + 2 && p.position.y > laptopY - 2 && !p.userData.onLaptop) {
-            
-            // Distancia al centro (ignoramos Y)
-            const dist = Math.sqrt(p.position.x * p.position.x + p.position.z * p.position.z);
-            
-            if (dist < laptopRadius) {
-                // ¡COLISIÓN DETECTADA!
-                p.userData.onLaptop = true;
-                p.position.y = laptopY + 2; // Lo ponemos encima
-                p.userData.velocityY = 0;   // Deja de caer verticalmente rápido
-                
-                // Efecto de impacto: cambiar color a blanco momentáneo
-                p.material.color.setHex(0xffffff);
-
-                // Calcular dirección de rebote (del centro hacia afuera)
+            // 1. Colisión Laptop
+            const distLaptop = Math.sqrt(p.position.x * p.position.x + p.position.z * p.position.z);
+            if (Math.abs(p.position.y - 15) < 5 && distLaptop < 20) {
+                p.userData.velocity.y = 0.5; 
                 const angle = Math.atan2(p.position.z, p.position.x);
-                // Le damos un empujón fuerte hacia afuera para que resbale
-                p.userData.velocityX = Math.cos(angle) * 0.8; 
-                p.userData.velocityZ = Math.sin(angle) * 0.8;
-                // Pequeño rebote hacia arriba
-                p.userData.velocityY = 0.5; 
+                p.userData.velocity.x = Math.cos(angle) * 0.8;
+                p.userData.velocity.z = Math.sin(angle) * 0.8;
+                p.material.color.setHex(0xffffff); 
+            }
+
+            // 2. Colisión Letras
+            if (p.position.y < -10 && p.position.y > -20 && 
+                p.position.z < -15 && p.position.z > -25 && 
+                p.position.x > -60 && p.position.x < 60) {
+                
+                p.userData.onGround = true; 
+                p.position.y = -10; 
+                p.material.color.setHex(0x00ffff); 
+            }
+
+            // 3. Suelo
+            if (p.position.y < -25) {
+                p.userData.onGround = true;
+                p.position.y = -25;
+            }
+
+        } else {
+            p.userData.life -= 1; 
+            p.material.opacity = p.userData.life / 100; 
+            p.position.x += (Math.random() - 0.5) * 0.1;
+            
+            if (p.userData.life <= 0) {
+                scene.remove(p);
+                particles.splice(i, 1);
             }
         }
-
-        // Si ya chocó y está "resbalando", aplicamos gravedad suave
-        if (p.userData.onLaptop) {
-            p.userData.velocityY -= 0.05; // Gravedad
-            // Volver al color verde poco a poco
-            if (p.material.color.g < 1) p.material.color.setHex(0x00ff00);
-        }
-
-        // 2. CHEQUEO DE COLISIÓN CON EL SUELO REAL
-        if (p.position.y <= floorY) {
-            // Se detiene en el suelo
-            p.position.y = floorY + Math.random(); 
-            p.material.color.setHex(0x004400); // Verde oscuro (basura)
-            piledParticles.push(p);
-            fallingParticles.splice(i, 1);
-        }
     }
 
-    // -- EL CARRO LIMPIADOR --
-    if (silenceTimer > 180 && piledParticles.length > 0 && !isSweeping) {
-        isSweeping = true;
-        cleanerCar.position.x = -100;
-    }
-
-    if (isSweeping) {
-        cleanerCar.position.x += 1.0; // Velocidad del carro
-        cleanerCar.position.y = floorY + 3.5 + Math.sin(Date.now()*0.5)*0.2; // Vibración
-        
-        // Rotar ruedas
-        cleanerCar.children.forEach((c, idx) => { if(idx>=3) c.rotation.x -= 0.3; });
-
-        // Barrer basura
-        const bladeX = cleanerCar.position.x + 10;
-        for (let i = piledParticles.length - 1; i >= 0; i--) {
-            const p = piledParticles[i];
-            if (p.position.x < bladeX && p.position.x > bladeX - 10) {
-                // Efecto de salir volando al ser empujado
-                p.position.x += 2; // Empujar adelante
-                p.position.y += Math.random(); // Saltar un poco
-                p.material.opacity -= 0.1; // Desvanecer
-                if(p.material.opacity <= 0) {
-                    scene.remove(p);
-                    piledParticles.splice(i, 1);
-                }
-            }
-        }
-        if (cleanerCar.position.x > 100) {
-            isSweeping = false;
-            cleanerCar.position.x = -150;
-            silenceTimer = 0;
-        }
-    }
-
-    // Limpieza de seguridad
-    if (piledParticles.length > 1000) scene.remove(piledParticles.shift());
-
-    renderer.render(scene, camera);
+    // USAMOS EL COMPOSER EN VEZ DEL RENDERER NORMAL PARA EL BLOOM
+    composer.render();
 }
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // Ajustar también el tamaño del Bloom
+    composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 animate();
-
-// Cambio para actualizar Netlify
