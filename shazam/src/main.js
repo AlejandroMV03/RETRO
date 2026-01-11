@@ -6,27 +6,27 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-// --- 1. ESCENARIO ---
+// --- 1. DETECCIÓN DE DISPOSITIVO ---
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
+}
+
+// --- 2. ESCENARIO ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020202); 
 scene.fog = new THREE.FogExp2(0x020202, 0.015);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-// --- AJUSTE DE CÁMARA PARA MÓVIL ---
-function updateCameraDistance() {
-    // Si el ancho es menor que el alto (Celular vertical), nos alejamos más
-    if (window.innerWidth < window.innerHeight) {
-        camera.position.set(0, 20, 180); // Más lejos para que quepa todo
-    } else {
-        camera.position.set(0, 10, 110); // Posición normal PC
-    }
+// Ajuste inicial de cámara
+if (isMobile()) {
+    camera.position.set(0, 20, 180); // Lejos para móvil vertical
+} else {
+    camera.position.set(0, 10, 110); // Cerca para PC
 }
-updateCameraDistance();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-// OPTIMIZACIÓN MÓVIL: Ajustar densidad de píxeles (máximo 2 para rendimiento)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.3;
@@ -34,7 +34,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// --- BLOOM (POST-PROCESADO) ---
+// --- BLOOM ---
 const renderScene = new RenderPass(scene, camera);
 const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight), 
@@ -47,7 +47,7 @@ composer.addPass(bloomPass);
 // Controles
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enableZoom = true; // Permitir zoom en móvil (pellizco)
+controls.enableZoom = true;
 controls.maxPolarAngle = Math.PI / 2; 
 
 // Suelo
@@ -79,7 +79,7 @@ spotLight.castShadow = true;
 scene.add(spotLight);
 
 
-// --- 2. LAPTOP GAMER ---
+// --- 3. LAPTOP GAMER ---
 const laptopGroup = new THREE.Group();
 laptopGroup.position.set(0, 15, 0); 
 scene.add(laptopGroup);
@@ -118,7 +118,7 @@ laptopLight.position.set(0, 20, 10);
 scene.add(laptopLight);
 
 
-// --- 3. TEXTO "ALEJANDRO MV" ---
+// --- 4. TEXTO "ALEJANDRO MV" ---
 const letters = []; 
 const fontLoader = new FontLoader();
 
@@ -156,51 +156,40 @@ fontLoader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.jso
 });
 
 
-// --- INTERACCIÓN (MOUSE + TOUCH) ---
+// --- INTERACCIÓN ---
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let draggedObject = null;
-
-// UI Elements
 const overlay = document.getElementById('overlay');
 
-// FUNCIÓN UNIFICADA PARA DETECTAR POSICIÓN (Touch o Mouse)
 function updateMousePosition(event) {
     let clientX, clientY;
-    
     if (event.changedTouches) {
-        // Es un evento táctil
         clientX = event.changedTouches[0].clientX;
         clientY = event.changedTouches[0].clientY;
     } else {
-        // Es un evento de mouse
         clientX = event.clientX;
         clientY = event.clientY;
     }
-
     mouse.x = (clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 }
 
-// 1. INICIO (MouseDown / TouchStart)
 function onStart(e) {
     if(overlay && overlay.style.display !== 'none') return;
     updateMousePosition(e);
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(letters);
     if (intersects.length > 0) {
-        controls.enabled = false; // Desactivar rotación para poder arrastrar
+        controls.enabled = false;
         draggedObject = intersects[0].object;
         draggedObject.userData.isDragging = true;
     }
 }
 
-// 2. MOVIMIENTO (MouseMove / TouchMove)
 function onMove(e) {
     if (!draggedObject) return;
-    // Prevenir scroll en móviles al arrastrar letras
     if(e.changedTouches) e.preventDefault(); 
-    
     updateMousePosition(e);
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObject(dragPlane);
@@ -211,27 +200,23 @@ function onMove(e) {
     }
 }
 
-// 3. FIN (MouseUp / TouchEnd)
 function onEnd() {
     if (draggedObject) {
         draggedObject.userData.isDragging = false;
         draggedObject = null;
-        controls.enabled = true; // Reactivar rotación
+        controls.enabled = true;
     }
 }
 
-// Event Listeners (Mouse)
 window.addEventListener('mousedown', onStart);
 window.addEventListener('mousemove', onMove);
 window.addEventListener('mouseup', onEnd);
-
-// Event Listeners (Touch - Móvil)
 window.addEventListener('touchstart', onStart, { passive: false });
 window.addEventListener('touchmove', onMove, { passive: false });
 window.addEventListener('touchend', onEnd);
 
 
-// --- 4. LLUVIA Y OBJETOS ---
+// --- 5. LLUVIA Y OBJETOS ---
 function createCharTexture(char) {
     const cvs = document.createElement('canvas');
     cvs.width = 64; cvs.height = 64;
@@ -248,7 +233,6 @@ const particles = [];
 
 function spawnDrop(volume) {
     const tex = textures[Math.floor(Math.random() * textures.length)];
-    // Material brillante para el Bloom
     const mat = new THREE.SpriteMaterial({ map: tex, color: 0x44ff44, transparent: true, opacity: 0.9 });
     const sprite = new THREE.Sprite(mat);
     sprite.position.set((Math.random()-0.5)*300, 80, (Math.random()-0.5)*150);
@@ -259,7 +243,7 @@ function spawnDrop(volume) {
 }
 
 
-// --- 5. AUDIO & LOGICA UI ---
+// --- 6. AUDIO Y LOGICA UI (HÍBRIDA) ---
 let analyser, dataArray, isAudioActive = false;
 const startButton = document.getElementById('start-btn');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -274,10 +258,26 @@ if(fullscreenBtn) {
     });
 }
 
+// --- FUNCIÓN DE CAPTURA INTELIGENTE ---
 async function startCapture() {
     try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        stream.getVideoTracks()[0].stop(); 
+        let stream;
+        
+        // LÓGICA DE DECISIÓN:
+        if (isMobile()) {
+            // A. EN CELULAR: Usar Micrófono (getUserMedia)
+            // No pide seleccionar pantalla, solo permiso de mic.
+            console.log("Modo Móvil: Usando Micrófono");
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } else {
+            // B. EN PC/DESKTOP: Usar Audio del Sistema (getDisplayMedia)
+            // Permite calidad perfecta compartiendo pestaña/pantalla.
+            console.log("Modo PC: Usando Audio del Sistema");
+            stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+            // Paramos el video porque solo queremos audio en PC
+            stream.getVideoTracks().forEach(track => track.stop());
+        }
+
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const src = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
@@ -285,14 +285,25 @@ async function startCapture() {
         src.connect(analyser);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         isAudioActive = true;
+
         if(overlay) {
             overlay.style.opacity = '0';
             setTimeout(() => { overlay.style.display = 'none'; }, 500);
         }
-    } catch (e) { console.error(e); }
+
+    } catch (e) { 
+        console.error("Error de audio:", e);
+        if(isMobile()){
+            alert("⚠️ En celular necesitas permitir el uso del micrófono para que las luces reaccionen.");
+        } else {
+            alert("⚠️ Debes seleccionar una pestaña o pantalla con audio para iniciar.");
+        }
+    }
 }
 if(startButton) startButton.addEventListener('click', startCapture);
 
+
+// --- 7. ANIMACIÓN ---
 let hue = 0;
 
 function animate() {
@@ -366,8 +377,12 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
     
-    // Actualizar posición de cámara si gira el celular
-    updateCameraDistance();
+    // Actualizar cámara si rota el móvil
+    if (isMobile()) {
+        camera.position.set(0, 20, 180);
+    } else {
+        camera.position.set(0, 10, 110);
+    }
 });
 
 animate();
